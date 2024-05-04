@@ -1,8 +1,562 @@
-# Qidi-X-Max-3-Configuration
-Qidi X-Max 3 Configuration - An attempt to cluster and optimize current config. Make it ready for Klipper 12 native support.
+# Qidi X-MAX 3 Configuration by Remarkable_Sir May 4th 2024 
+# Klipper 12 + Mainsail Nuts&Bolt setup
+# An open source approach. Please share, enhance and use good commenting
+
+
+# This file contains common pin mappings for MKS SKIPR
+# boards. To use this config, the firmware should be compiled for the
+# stm32f407. When running "make menuconfig", select the 48KiB
+# bootloader, and enable "Serial for communication" and select the "on USART1 PA10/PA9"
+
+# The "make flash" command does not work on the MKS SKIPR. Instead,
+# after running "make", copy the generated "out/klipper.bin" file to a
+# file named "mks_skipr.bin" on an SD card and then restart the
+# MKS SKIPR with that SD card.
 
 
 
-The  Qidi-X-Max-3 is a great machine but regarding software you can find many inconsistencies and non optimal ways of designing the config files.
+#The following components are included and deviate from standard setup:
 
+#    Beacon probe instead of other probes --> install 
+#    Utilisation of Beacon rev H accelerometer instead of ADXL345 chip
+#    Klippain Shaketune environment to substitue standard input shaper methods
+#    KAMP environment to substitue proprietary Qidi meshing methods
+#    Macros are defined in the macros.cfg 
+#    Attention ball screw spindles installed with different rotation distance value! (see stepper_Z section)
+#    All conflicting and non understandable code is gone along with dangerous developer functionalities like [force_move]
+#    Use M117 and PRINT_START custom start gcode in slicer
+#    Use PRINT_END custom end gcode in slicer
+
+
+# Added components and functions that deviate from Qidi stock setup amongst other:
+# [respond], [exclude_object], [gcode_arcs], [idle_timeout],[firmware_retraction],
+# PRINT_START and PRINT_END macros with some specifics
+# cleansing of redundant duplettes in config (Fans, Extruder, other...) 
+# All fans where renamed according to Klipper standard configuration reference. Update: Fans named regarding ORCASLICER convention
+# That way every slicer will generate standard Gcode file that are digested 
+# by Klipper and can control the fans during the print.
+# changed filament sensor syntax
+
+
+##############################################################################
+# Include Section & General 
+##############################################################################
+
+
+
+[include macros.cfg]
+[include mainsail.cfg]
+[include K-ShakeTune/*.cfg]
+#[include KAMP_Settings.cfg]
+
+
+
+[respond]
+[exclude_object]
+
+[gcode_arcs]
+resolution: 1.0
+
+[idle_timeout]
+timeout: 86400
+
+##############################################################################
+# MCU & Controls 
+##############################################################################
+
+[mcu]
+#serial:/dev/serial/by-id/usb-Klipper_rp2040_A5D94D9519ED5658-if00
+serial: /dev/ttyS0
+
+restart_method: command
+
+[mcu MKS_THR]
+serial:/dev/serial/by-id/usb-Klipper_rp2040_A5D94D9519ED5658-if00
+
+[virtual_sdcard]
+path: /home/mks/printer_data/gcodes
+on_error_gcode: CANCEL_PRINT
+
+[temperature_sensor Host] # vbfore [temperature_sensor RK3328] 
+sensor_type: temperature_host
+min_temp: 2 # DIY coming from 10  \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+max_temp: 75
+
+[temperature_sensor MCU] #before [temperature_sensor STM32F402]
+sensor_type: temperature_mcu
+min_temp: 2 # DIY coming from 10  \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+max_temp: 85
+
+[temperature_sensor toolboard]
+sensor_type: temperature_mcu
+sensor_mcu: MKS_THR
+
+
+
+
+##############################################################################
+# Bed Meshing, BEACON, Calibration
+##############################################################################
+
+[bed_mesh]
+speed:300              
+#horizontal_move_z:10   
+mesh_min:30,30       
+mesh_max:290,290      
+probe_count:30,30      
+algorithm:bicubic
+bicubic_tension:0.2
+#mesh_pps: 4, 4
+#zero_reference_position: 160, 160
+#adaptive_margin: 5
+#move_check_distance: 5
+#split_delta_z: .025
+#fade_start: 1
+#fade_end: 10
+#fade_target: 0
+
+############### BEACON #######################
+
+[beacon]
+serial: /dev/serial/by-id/usb-Beacon_Beacon_RevH_15CF300B4E5737374D202020FF082D43-if00
+x_offset: 0 # update with offset from nozzle on your machine
+y_offset:24.5 # update with offset from nozzle on your machine
+mesh_main_direction: y
+mesh_runs: 2
+z_settling_time: 1000
+
+[safe_z_home]
+home_xy_position: 160, 160 # update for your machine
+z_hop: 5
+
+[resonance_tester]
+accel_chip: beacon
+probe_points: 160, 160, 10
+
+############### Klippain Shaketune output #######################
+
+[input_shaper]
+shaper_freq_x: 111.6 # center frequency for the X axis filter
+shaper_type_x: 3hump_ei # filter type for the X axis
+shaper_freq_y:59.2 # center frequency for the Y axis filter
+shaper_type_y: ei # filter type for the Y axis
+damping_ratio_x: 0.030 # damping ratio for the X axis
+damping_ratio_y: 0.051 # damping ratio for the Y axis
+
+
+##############################################################################
+# Extruder
+##############################################################################
+
+[extruder]
+step_pin: MKS_THR:gpio5
+dir_pin: MKS_THR:gpio4
+enable_pin: !MKS_THR:gpio10
+rotation_distance: 53.5  #22.6789511	#Bondtech 5mm Drive Gears
+gear_ratio: 1628:170				
+microsteps: 16
+full_steps_per_rotation: 200	#200 for 1.8 degree, 400 for 0.9 degree
+nozzle_diameter: 0.400
+filament_diameter: 1.75
+min_temp: 0
+max_temp: 360
+min_extrude_temp: 170
+smooth_time: 0.000001 # What's that? # Other values in MKS_THR.cfg present - Double check! 
+
+
+heater_pin: MKS_THR:gpio0
+sensor_type:MAX6675
+#   One of "MAX6675", "MAX31855", "MAX31856", or "MAX31865".
+#   One of "MAX6675", "MAX31855", "MAX31856", or "MAX31865".
+sensor_pin:MKS_THR:gpio17
+#   The chip select line for the sensor chip. This parameter must be
+#   provided.
+spi_speed: 100000
+#   The SPI speed (in hz) to use when communicating with the chip.
+#   The default is 4000000.
+#spi_bus:spi1
+spi_software_sclk_pin:MKS_THR:gpio18
+spi_software_mosi_pin:MKS_THR:gpio19
+spi_software_miso_pin:MKS_THR:gpio16
+#   See the "common SPI settings" section for a description of the
+#   above parameters.
+#tc_type: K
+#tc_use_50Hz_filter: False
+#c_averaging_count: 1
+#   The above parameters control the sensor parameters of MAX31856
+#   chips. The defaults for each parameter are next to the parameter
+#   name in the above list.
+max_power: 1.0
+control : pid  # Other values in MKS_THR.cfg present - Double check! 
+pid_Kp=14.734
+pid_Ki=6.549 
+pid_Kd=8.288
+
+pressure_advance: 0.032
+pressure_advance_smooth_time: 0.03
+max_extrude_cross_section:500
+instantaneous_corner_velocity: 10.000
+max_extrude_only_distance: 120.0
+max_extrude_only_velocity:5000
+max_extrude_only_accel:2000
+step_pulse_duration:0.000002
+max_extrude_cross_section: 5   # Other values in MKS_THR.cfg present - Calculated 0.64 acc to ref manual - KAMP requirement=5
+
+[tmc2209 extruder]
+uart_pin: MKS_THR:gpio6
+interpolate: True
+run_current: 0.714
+#hold_current: 0.5
+#sense_resistor: 0.110
+stealthchop_threshold: 0
+
+[firmware_retraction]
+retract_length: 0
+#   The length of filament (in mm) to retract when G10 is activated,
+#   and to unretract when G11 is activated (but see
+#   unretract_extra_length below). The default is 0 mm.
+retract_speed: 20
+#   The speed of retraction, in mm/s. The default is 20 mm/s.
+unretract_extra_length: 0
+#   The length (in mm) of *additional* filament to add when
+#   unretracting.
+unretract_speed: 10
+#   The speed of unretraction, in mm/s. The default is 10 mm/s.
+
+#[adxl345]
+#cs_pin: MKS_THR:gpio13
+#spi_software_sclk_pin: MKS_THR:gpio14
+#spi_software_mosi_pin: MKS_THR:gpio15
+#spi_software_miso_pin: MKS_THR:gpio12
+#axes_map: -x, z, -y
+
+
+
+##############################################################################
+# Motion System Kinematics
+##############################################################################
+
+
+
+[printer]
+kinematics:corexy
+max_velocity: 600
+max_accel: 20000
+#max_accel_to_decel: 10000 #deprecated 
+max_z_velocity: 20
+max_z_accel: 500
+square_corner_velocity: 8
+
+
+#deleted force move section.....
+#------------------------------------------------------
+
+[stepper_x]
+step_pin:PB4
+dir_pin:PB3
+enable_pin:!PB5
+microsteps:16
+rotation_distance: 39.94
+full_steps_per_rotation:200  #set to 400 for 0.9 degree stepper
+endstop_pin:tmc2209_stepper_x:virtual_endstop
+position_min: -7
+position_endstop:-7
+position_max:325
+homing_speed:40
+homing_retract_dist:0
+homing_positive_dir:False
+step_pulse_duration:0.000002
+
+[stepper_y]
+step_pin:PC14
+dir_pin:PC13
+enable_pin:!PC15
+microsteps: 16
+rotation_distance: 39.94
+full_steps_per_rotation:200  #set to 400 for 0.9 degree stepper
+endstop_pin:tmc2209_stepper_y:virtual_endstop
+position_min: -9.5
+position_endstop: -9.5
+position_max: 325
+homing_speed:40
+homing_retract_dist:0
+homing_positive_dir:False
+step_pulse_duration:0.000002
+
+
+
+[stepper_z]
+step_pin:PC10
+dir_pin:PA15
+enable_pin: !PC11
+microsteps: 16
+rotation_distance: 4
+full_steps_per_rotation: 200
+endstop_pin: probe:z_virtual_endstop # use beacon as virtual endstop
+
+#endstop_pin:probe:z_virtual_endstop#!PC3 #for Z-max; endstop have'!' is NO
+#position_endstop:326
+position_max:300
+position_min: -6
+homing_speed: 8
+homing_retract_dist: 0 # beacon needs this to be set to 0 coming from 8.0
+second_homing_speed: 8
+homing_positive_dir:false
+step_pulse_duration:0.000002
+
+
+
+[tmc2209 stepper_x]
+uart_pin: PD2
+run_current:1.07
+#hold_current: 0.5
+interpolate: True
+stealthchop_threshold: 0
+diag_pin:^PB8
+driver_SGTHRS: 85
+#driver_SGTHRS: 130
+[tmc2209 stepper_y]
+uart_pin: PB9
+run_current: 1.07
+#hold_current: 0.5
+interpolate: True
+stealthchop_threshold: 0
+diag_pin:^PC0
+driver_SGTHRS: 85
+#driver_SGTHRS: 145
+
+#[tmc2240 stepper_y]
+#cs_pin:PB9
+#spi_software_sclk_pin:PA5
+#spi_software_mosi_pin:PA7
+#spi_software_miso_pin:PA6
+#spi_speed:200000
+#run_current: 1.07
+#hold_current: 0.5
+#sense_resistor: 0.110
+#interpolate:true
+#stealthchop_threshold:1
+#diag0_pin:!PC0
+#driver_SGT:1
+
+#[tmc2240 stepper_x]
+#cs_pin:PD2
+#spi_software_sclk_pin:PA5
+#spi_software_mosi_pin:PA7
+#spi_software_miso_pin:PA6
+#spi_speed:200000
+#run_current: 1.07
+#hold_current: 0.5
+#sense_resistor: 0.110
+#interpolate:true
+#stealthchop_threshold:1
+#diag0_pin:!PB8
+#driver_SGT:1
+
+[tmc2209 stepper_z]
+uart_pin: PC5
+run_current: 0.95
+#hold_current: 0.6
+interpolate: True
+stealthchop_threshold: 1200
+
+
+
+##############################################################################
+# Heater Bed, Nozzle, Chamber
+##############################################################################
+
+
+[heater_bed]
+heater_pin:PC8
+sensor_type: NTC 100K MGB18-104F39050L32
+sensor_pin: PA0
+max_power: 1.0
+control = pid
+pid_kp = 71.039
+pid_ki = 2.223
+pid_kd = 567.421
+min_temp: -50
+max_temp: 125
+
+[heater_generic chamber] #_heater]
+#gcode_id:
+#   使用M105查询温度时使用的ID。
+#   必须提供此参数。
+heater_pin:PB10
+max_power:1.0
+sensor_type:NTC 100K MGB18-104F39050L32
+sensor_pin:PA1
+
+
+control = watermark
+max_delta: 1.0
+#pid_Kp=63.418 
+#pid_Ki=1.342 
+#pid_Kd=749.125
+
+min_temp:-100
+max_temp:70
+
+[verify_heater chamber] #_heater]
+max_error: 300
+check_gain_time:480
+hysteresis: 5
+heating_gain: 1
+
+[verify_heater extruder]
+max_error: 120
+check_gain_time:20
+hysteresis: 5
+heating_gain: 1
+
+[verify_heater heater_bed]
+max_error: 200
+check_gain_time:60
+hysteresis: 5
+heating_gain: 1
+
+
+##############################################################################
+# Fans
+##############################################################################
+
+# All fans where renamed according to Klipper standard configuration reference.
+# That way every slicer will generate standard Gcode file that are digested 
+# by Klipper and can control the fans during the print.
+# Orcaslicer naming convention applied!
+# https://github.com/SoftFever/OrcaSlicer/wiki/Auxiliary-fan
+
+#####  Fan0 Part Cooling Fan
+[fan_generic fan0]
+pin: MKS_THR:gpio2
+# pwm: True
+cycle_time: 0.0100
+hardware_pwm: false
+# value: 0
+# scale: 255
+off_below: 0.0
+#[output_pin fan0]
+#pin: MKS_THR:gpio2
+#pwm: True
+#cycle_time: 0.0100
+#hardware_pwm: false
+#value: 0
+#scale: 255
+#shutdown_value: 0.0
+
+#####  Fan2 Aux Fan
+[fan_generic fan2]
+max_power: 1.0
+shutdown_speed: 0
+pin: PA8
+cycle_time: 0.0100
+hardware_pwm: false
+#[output_pin fan2]
+#pin: PA8
+#pwm: True
+#cycle_time: 0.0100
+#hardware_pwm: false
+#value: 0.00
+#scale: 255
+#shutdown_value: 0.0
+
+
+#####  Fan3 Chamber Fan
+[fan_generic fan3]
+max_power: 1.0
+shutdown_speed: 0
+pin: PC9
+cycle_time: 0.0100
+hardware_pwm: false
+#[output_pin fan3]
+#pin:PC9
+#pwm: True
+#cycle_time: 0.0100
+#hardware_pwm: false
+#value: 0.0
+#scale: 255
+#shutdown_value: 0.0
+
+#####  Fan - Hotend Heatbreak Fan1
+[heater_fan hotend_fan]
+pin:MKS_THR:gpio1
+max_power: 1.0
+kick_start_time: 0.5
+heater: extruder
+heater_temp: 50.0
+fan_speed: 1.0
+off_below: 0
+
+#####  Fan Hotend Fan2
+[heater_fan hotend_fan2]
+pin:MKS_THR:gpio20
+max_power: 1.0
+kick_start_time: 0.5
+heater: extruder
+heater_temp: 50.0
+fan_speed: 1.0
+off_below: 0
+
+#####  Fan Board
+[heater_fan board_fan]
+pin:PC4
+max_power: 1.0
+kick_start_time: 0.5
+heater: extruder
+heater_temp: 50.0
+fan_speed: 1.0
+off_below: 0
+
+
+
+
+
+##############################################################################
+# LED, Filament. Sensors
+##############################################################################
+
+
+##LED 灯
+[output_pin caselight]
+##  Chamber Lighting - In 5V-RGB Position
+pin: PC7
+pwm: false
+shutdown_value:0
+value:1
+#cycle_time:0.01
+
+[output_pin beeper]
+##  Chamber Lighting - In 5V-RGB Position
+pin: PA2
+pwm: false
+shutdown_value:0
+value:0
+
+
+[output_pin pwc]
+pin: PA3
+pwm: False
+value: 1
+shutdown_value: 1
+
+
+[filament_switch_sensor filament]
+pause_on_runout: True
+runout_gcode:
+            PAUSE
+event_delay: 3.0
+pause_delay: 0.5
+switch_pin: !PC1
+
+#[neopixel my_neopixel]
+#pin: MKS_THR:gpio20
+#chain_count: 10
+#color_order: GRB
+#initial_RED: 0.0
+#initial_GREEN: 0.0
+#initial_BLUE: 0.0
+
+#*# <---------------------- SAVE_CONFIG ---------------------->
+#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
 
