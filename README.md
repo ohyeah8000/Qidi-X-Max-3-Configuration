@@ -11,7 +11,7 @@ The following components are included and deviate from standard setup:
 Beacon probe instead of other probes --> install
 Utilisation of Beacon rev H accelerometer instead of ADXL345 chip
 Klippain Shaketune environment to substitue standard input shaper methods
-KAMP environment to substitue proprietary Qidi meshing methods
+(deactivated-KAMP environment to substitue proprietary Qidi meshing methods)
 Macros are defined in the macros.cfg
 Attention ball screw spindles installed with different rotation distance value! (see stepper_Z section)
 All conflicting and non nderstandable code is gone along with dangerous developer functionalities like [force_move]
