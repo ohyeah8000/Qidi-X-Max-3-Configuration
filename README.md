@@ -23,3 +23,12 @@ Added components and functions that deviate from Qidi stock setup amongst other:
  PRINT_START and PRINT_END macros with some specifics,
  cleansing of redundant duplettes in config (Fans, Extruder, other...)
 Some other stuff is also integrated like tilt_screw_adjust for M4 bolts etc....
+
+
+Update may 2024: 
+This config and macro is modified to Orcaslicer. Fans are renamed to make it work according to Orcaslicer fans naming convention. Orca can now activate all of the 5 fans and also the chamber heater fan.
+
+Things to do:
+- Change filament macro
+- purgng algorithm since I removed KAMPand rely on adaptive bed meshing Klipper has on board since 2024
+- consistency check and removal of dead ends or dupes
